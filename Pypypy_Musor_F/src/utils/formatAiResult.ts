@@ -1,38 +1,36 @@
+// utils/formatAiResult.ts
+// utils/formatAiResult.ts
 import type { PredictionResponse } from "@/types/ai";
 import { wasteInfoMap } from "./wasteMapping";
 
-export function formatAiResult(response: PredictionResponse) {
-  const filtered = response.predictions.filter(
-    (p) => p.label.toLowerCase() !== "other"
-  );
-
-  const best =
-    filtered.length > 0
-      ? filtered.reduce((a, b) => (a.confidence > b.confidence ? a : b))
-      : response.predictions[0];
-
-  if (!best?.label) {
+export const formatAiResult = (
+  result: PredictionResponse
+): {
+  title: string;
+  container: string;
+  advice: string;
+  wasteType?: string;
+  recognized: boolean;
+} => {
+  const prediction = result.predictions[0];
+  
+  if (!prediction || prediction.confidence < 0.5) {
     return {
-      title: "Не удалось определить тип отхода 😔",
-      container: "Попробуйте сделать фото ещё раз",
+      title: "Не удалось распознать",
+      container: "Попробуйте сфотографировать ещё раз или выберите категорию вручную",
       advice: "",
+      recognized: false
     };
   }
 
-  const wasteKey = best.label.toLowerCase();
-  const wasteInfo = wasteInfoMap[wasteKey];
-
-  if (!wasteInfo) {
-    return {
-      title: `Это похоже на: ${best.label}`,
-      container: "Контейнер не определён",
-      advice: "Мы пока не знаем, куда это утилизировать.",
-    };
-  }
-
+  const label = prediction.label.toLowerCase();
+  const info = wasteInfoMap[label] || wasteInfoMap.plastic;
+  
   return {
-    title: `Это ${wasteInfo.label}!`,
-    container: `Выкиньте это в ${wasteInfo.containerColor} контейнер!`,
-    advice: `А ещё вот вам совет от нашей нейросети:\n${wasteInfo.advice}`,
+    title: `Это ${info.label}!`,
+    container: `Отнесите в ${info.containerColor} контейнер`,
+    advice: info.advice,
+    wasteType: label,
+    recognized: true
   };
-}
+};
