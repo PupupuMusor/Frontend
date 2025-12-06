@@ -4,12 +4,8 @@ import { Choice } from "./components/shared/choice";
 import { Title } from "./components/shared/title";
 import TopEcologists from "./components/shared/top-ecologists";
 import { Container } from "./components/shared/container";
-import { useState } from "react";
-import { RatingModal } from "./components/modals/RatingMadal";
 
 function App() {
-  const [isRatingOpen, setIsRatingOpen] = useState(false);
-
   return (
     <>
       <div className="text-slate-700 text-4xl">
@@ -23,10 +19,6 @@ function App() {
           <TopEcologists />
         </Container>
       </div>
-      <RatingModal
-        isOpen={isRatingOpen}
-        onClose={() => setIsRatingOpen(false)}
-      />
     </>
   );
 }
