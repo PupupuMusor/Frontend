@@ -2,11 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useAnalyzeImageMutation } from "@/features/aiApi";
+import type { PredictionResponse } from "@/types/ai";
+import { formatAiResult } from "@/utils/formatAiResult";
 
 interface CameraModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (nickname: string, photo: string) => void;
+  onSubmit: (nickname: string, result: PredictionResponse) => void;
 }
 
 export const CameraModal: React.FC<CameraModalProps> = ({
@@ -16,10 +19,19 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 }) => {
   const [nickname, setNickname] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+
+  const [resultText, setResultText] = useState<{
+    title: string;
+    container: string;
+    advice: string;
+  } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  const [analyzeImage, { isLoading }] = useAnalyzeImageMutation();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -65,6 +77,37 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 
     const imageBase64 = canvas.toDataURL("image/jpeg");
     setPhoto(imageBase64);
+
+    fetch(imageBase64)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const imageFile = new File([blob], "photo.jpg", {
+          type: "image/jpeg",
+        });
+        setFile(imageFile);
+      });
+  };
+
+  const sendToAI = async () => {
+    if (!file || !nickname) return;
+
+    try {
+      const result: PredictionResponse = await analyzeImage(file).unwrap();
+
+      onSubmit(nickname, result);
+
+      const formatted = formatAiResult(result);
+      setResultText(formatted);
+    } catch (err) {
+      console.error("Ошибка анализа:", err);
+      alert("Ошибка при распознавании изображения");
+    }
+  };
+
+  const resetAndRetry = () => {
+    setPhoto(null);
+    setFile(null);
+    setResultText(null);
   };
 
   if (!isOpen) return null;
@@ -73,7 +116,6 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-white rounded-3xl p-6 w-full max-w-md relative text-center">
 
-        {/* Крестик */}
         <button
           className="absolute top-4 right-4 text-gray-400 hover:text-black text-2xl"
           onClick={onClose}
@@ -81,56 +123,78 @@ export const CameraModal: React.FC<CameraModalProps> = ({
           ×
         </button>
 
-        <h2 className="text-2xl font-bold mb-3">Сделайте фото отхода</h2>
+        {!resultText && (
+          <>
+            <h2 className="text-2xl font-bold mb-3">Сделайте фото отхода</h2>
 
-        {!photo && (
-          <video
-            ref={videoRef}
-            className="w-full rounded-xl mb-4"
-            autoPlay
-            playsInline
-          />
+            {!photo && (
+              <video
+                ref={videoRef}
+                className="w-full rounded-xl mb-4"
+                autoPlay
+                playsInline
+              />
+            )}
+
+            {photo && (
+              <img
+                src={photo}
+                alt="preview"
+                className="w-full rounded-xl mb-4"
+              />
+            )}
+
+            <Input
+              type="text"
+              placeholder="Введите никнейм"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              className="mb-4"
+            />
+
+            {!photo ? (
+              <Button
+                className="w-full mb-2 bg-yellow-400 hover:bg-yellow-500"
+                onClick={takePhoto}
+                disabled={!nickname}
+              >
+                <Camera className="mr-2" /> Сделать фото
+              </Button>
+            ) : (
+              <Button
+                className="w-full bg-green-500 hover:bg-green-600"
+                onClick={sendToAI}
+                disabled={isLoading}
+              >
+                {isLoading ? "Распознаю..." : "Отправить на распознавание"}
+              </Button>
+            )}
+          </>
         )}
+        {resultText && (
+          <div className="text-center space-y-4">
+            <h2 className="text-2xl font-bold">{resultText.title}</h2>
+            <p className="text-lg font-semibold">{resultText.container}</p>
+            <p className="text-gray-600 whitespace-pre-line">
+              {resultText.advice}
+            </p>
+            
 
-        {photo && (
-          <img
-            src={photo}
-            alt="preview"
-            className="w-full rounded-xl mb-4"
-          />
+            <Button
+              className="w-full mt-2 bg-yellow-400 hover:bg-yellow-500"
+              onClick={resetAndRetry}
+            >
+              Сфотографировать ещё
+            </Button>
+
+            <Button
+              className="w-full bg-gray-200 hover:bg-gray-300 text-black"
+              onClick={onClose}
+            >
+              Закрыть
+            </Button>
+          </div>
         )}
-
-        <Input
-          type="text"
-          placeholder="Введите никнейм"
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          className="mb-4"
-        />
-
-        {!photo ? (
-          <Button
-            className="w-full mb-2 bg-yellow-400 hover:bg-yellow-500"
-            onClick={takePhoto}
-            disabled={!nickname}
-          >
-            <Camera className="mr-2" /> Сделать фото
-          </Button>
-        ) : (
-          <Button
-            className="w-full bg-green-500 hover:bg-green-600"
-            onClick={() => {
-              onSubmit(nickname, photo);
-              setNickname("");
-              setPhoto(null);
-              onClose();
-            }}
-          >
-            Отправить на распознавание
-          </Button>
-        )}
-
-        {/* canvas скрытый */}
         <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>
