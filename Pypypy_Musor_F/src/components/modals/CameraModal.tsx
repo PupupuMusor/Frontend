@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAnalyzeImageMutation } from "@/features/aiApi";
 import type { PredictionResponse } from "@/types/ai";
 import { formatAiResult } from "@/utils/formatAiResult";
+import { useGetAllUsersQuery } from "@/features/userApi";
 
 interface CameraModalProps {
   isOpen: boolean;
@@ -34,6 +35,24 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
 
   const [analyzeImage, { isLoading }] = useAnalyzeImageMutation();
+  const { data: users = [] } = useGetAllUsersQuery();
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const filteredUsers = users.filter((user) =>
+    user.nickname.toLowerCase().includes(nickname.toLowerCase())
+  );
+  
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || resultText) return;
@@ -176,14 +195,36 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 />
               )}
             </div>
+            <div className="relative mb-6">
+              <Input
+                type="text"
+                placeholder="Введите ваш никнейм"
+                value={nickname}
+                onChange={(e) => {
+                  setNickname(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                className="text-lg py-3 px-4"
+              />
 
-            <Input
-              type="text"
-              placeholder="Введите ваш никнейм"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              className="mb-6 text-lg py-3 px-4"
-            />
+              {showSuggestions && filteredUsers.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white border rounded-xl mt-2 max-h-48 overflow-y-auto z-20 shadow-lg">
+                  {filteredUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
+                      onClick={() => {
+                        setNickname(user.nickname);
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      {user.nickname}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="space-y-4">
               {!photo ? (

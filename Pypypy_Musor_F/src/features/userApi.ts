@@ -8,42 +8,19 @@ export interface User {
 
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getUsers: builder.query<User[], void>({
-      query: () => "/users",
+    getAllUsers: builder.query<User[], void>({
+      query: () => "/users/all",
       providesTags: ["User"],
     }),
 
-    getUserById: builder.query<User, string>({
-      query: (id) => `/users/${id}`,
+    getUserByLogin: builder.query<User, string>({
+      query: (login) => `/users/user/${login}`,
       providesTags: ["User"],
-    }),
-
-    createUser: builder.mutation<User, { nickname: string }>({
-      query: (body) => ({
-        url: "/users",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: ["User"],
-    }),
-
-    addPoints: builder.mutation<
-      User,
-      { userId: string; points: number }
-    >({
-      query: ({ userId, points }) => ({
-        url: `/users/${userId}/points`,
-        method: "PATCH",
-        body: { points },
-      }),
-      invalidatesTags: ["User"],
     }),
   }),
 });
 
 export const {
-  useGetUsersQuery,
-  useGetUserByIdQuery,
-  useCreateUserMutation,
-  useAddPointsMutation,
+  useGetAllUsersQuery,
+  useGetUserByLoginQuery,
 } = usersApi;
