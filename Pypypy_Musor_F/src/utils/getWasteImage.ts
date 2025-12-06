@@ -5,6 +5,7 @@ export function getWasteImage(type: string) {
   if (key === "paper") return "/paper.jpg";
   if (key === "organic") return "/organic.jpg";
   if (key === "glass") return "/glass.jpg";
+  if (key === "metall") return "/metall.jpg";
 
   return null;
 }

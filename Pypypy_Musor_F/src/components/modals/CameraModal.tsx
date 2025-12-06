@@ -25,6 +25,8 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     title: string;
     container: string;
     advice: string;
+    wasteType?: string;
+    recognized: boolean;
   } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -34,7 +36,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   const [analyzeImage, { isLoading }] = useAnalyzeImageMutation();
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || resultText) return;
 
     const startCamera = async () => {
       try {
@@ -48,8 +50,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
           videoRef.current.srcObject = stream;
           videoRef.current.play();
         }
-      } catch (error) {
-        console.error("Ошибка доступа к камере:", error);
+      } catch {
         alert("Не удалось получить доступ к камере");
       }
     };
@@ -57,11 +58,10 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     startCamera();
 
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     };
-  }, [isOpen]);
+  }, [isOpen, resultText]);
 
   const takePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -89,22 +89,38 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   };
 
   const sendToAI = async () => {
-    if (!file || !nickname) return;
+    if (!file || !nickname || isLoading) return;
 
-    try {
-      const result: PredictionResponse = await analyzeImage(file).unwrap();
+    const result: PredictionResponse = await analyzeImage(file).unwrap();
+    onSubmit(nickname, result);
 
-      onSubmit(nickname, result);
-
-      const formatted = formatAiResult(result);
-      setResultText(formatted);
-    } catch (err) {
-      console.error("Ошибка анализа:", err);
-      alert("Ошибка при распознавании изображения");
-    }
+    const formatted = formatAiResult(result);
+    setResultText(formatted);
   };
 
   const resetAndRetry = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setPhoto(null);
+    setFile(null);
+    setResultText(null);
+  };
+  
+
+  const fullReset = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setNickname("");
     setPhoto(null);
     setFile(null);
     setResultText(null);
@@ -112,89 +128,134 @@ export const CameraModal: React.FC<CameraModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Маппинг типов мусора на названия файлов изображений
+  const getImageForWasteType = (type: string = 'plastic') => {
+    const imageMap: Record<string, string> = {
+      plastic: '/plastic.jpg',
+      paper: '/paper.jpg',
+      organic: '/organic.jpg',
+      glass: '/glass.jpg',
+      metal: '/glass.jpg',
+    };
+    return imageMap[type] || '/plastic.jpg';
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-white rounded-3xl p-6 w-full max-w-md relative text-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white rounded-3xl p-6 w-full max-w-2xl relative text-center max-h-[90vh] overflow-y-auto">
 
         <button
-          className="absolute top-4 right-4 text-gray-400 hover:text-black text-2xl"
-          onClick={onClose}
+          className="absolute top-6 right-6 text-gray-400 hover:text-black text-3xl z-10"
+            onClick={() => {
+              fullReset();
+              onClose();
+            }}
         >
           ×
         </button>
 
         {!resultText && (
           <>
-            <h2 className="text-2xl font-bold mb-3">Сделайте фото отхода</h2>
+            <h2 className="text-3xl font-bold mb-6">Сделайте фото отхода</h2>
 
-            {!photo && (
-              <video
-                ref={videoRef}
-                className="w-full rounded-xl mb-4"
-                autoPlay
-                playsInline
-              />
-            )}
+            <div className="mb-6 relative">
+              {!photo && (
+                <video
+                  ref={videoRef}
+                  className="w-full rounded-2xl mb-4 max-h-[50vh] object-cover"
+                  autoPlay
+                  playsInline
+                />
+              )}
 
-            {photo && (
-              <img
-                src={photo}
-                alt="preview"
-                className="w-full rounded-xl mb-4"
-              />
-            )}
+              {photo && (
+                <img
+                  src={photo}
+                  alt="preview"
+                  className="w-full rounded-2xl mb-4 max-h-[50vh] object-cover"
+                />
+              )}
+            </div>
 
             <Input
               type="text"
-              placeholder="Введите никнейм"
+              placeholder="Введите ваш никнейм"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              className="mb-4"
+              className="mb-6 text-lg py-3 px-4"
             />
 
-            {!photo ? (
-              <Button
-                className="w-full mb-2 bg-yellow-400 hover:bg-yellow-500"
-                onClick={takePhoto}
-                disabled={!nickname}
-              >
-                <Camera className="mr-2" /> Сделать фото
-              </Button>
-            ) : (
-              <Button
-                className="w-full bg-green-500 hover:bg-green-600"
-                onClick={sendToAI}
-                disabled={isLoading}
-              >
-                {isLoading ? "Распознаю..." : "Отправить на распознавание"}
-              </Button>
-            )}
+            <div className="space-y-4">
+              {!photo ? (
+                <Button
+                  className="w-full py-6 text-lg bg-yellow-400 hover:bg-yellow-500 transition-all"
+                  onClick={takePhoto}
+                  disabled={!nickname}
+                >
+                  <Camera className="mr-3 h-6 w-6" /> Сделать фото
+                </Button>
+              ) : (
+                <Button
+                  className="w-full py-6 text-lg bg-green-500 hover:bg-green-600 transition-all"
+                  onClick={sendToAI}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Распознаю..." : "Отправить на распознавание"}
+                </Button>
+              )}
+            </div>
           </>
         )}
+
         {resultText && (
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold">{resultText.title}</h2>
-            <p className="text-lg font-semibold">{resultText.container}</p>
-            <p className="text-gray-600 whitespace-pre-line">
-              {resultText.advice}
-            </p>
+          <div className="text-center space-y-6">
+            <h2 className={`text-3xl font-bold ${!resultText.recognized ? 'text-red-500' : ''}`}>
+              {resultText.title}
+            </h2>
             
+            {/* Отображение картинки ТОЛЬКО если удалось распознать */}
+            {resultText.recognized && resultText.wasteType && (
+              <div className="relative w-full h-64 rounded-2xl overflow-hidden mb-4">
+                <img
+                  src={getImageForWasteType(resultText.wasteType)}
+                  alt={resultText.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            
+            <div className="bg-gray-50 rounded-xl p-5">
+              <p className="text-xl font-semibold text-gray-800 mb-3">
+                {resultText.container}
+              </p>
+              {resultText.advice && (
+                <p className="text-gray-600 whitespace-pre-line text-lg leading-relaxed">
+                  {resultText.advice}
+                </p>
+              )}
+            </div>
 
-            <Button
-              className="w-full mt-2 bg-yellow-400 hover:bg-yellow-500"
-              onClick={resetAndRetry}
-            >
-              Сфотографировать ещё
-            </Button>
+            <div className="space-y-4 pt-4">
+              <Button
+                className="w-full py-6 text-lg bg-yellow-400 hover:bg-yellow-500 transition-all"
+                onClick={resetAndRetry}
+              >
+                Сфотографировать ещё
+              </Button>
 
-            <Button
-              className="w-full bg-gray-200 hover:bg-gray-300 text-black"
-              onClick={onClose}
-            >
-              Закрыть
-            </Button>
+              <Button
+                className="w-full py-6 text-lg bg-gray-200 hover:bg-gray-300 text-black transition-all"
+                onClick={() => {
+                  fullReset();
+                  onClose();
+                }}
+              >
+                Закрыть
+              </Button>
+            </div>
           </div>
         )}
+        
         <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>
