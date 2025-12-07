@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const aiApi = createApi({
   reducerPath: "aiApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5276/api",
+    baseUrl: "http://localhost:5276",
   }),
   endpoints: (builder) => ({
     analyzeImage: builder.mutation<PredictionResponse, File>({
@@ -13,7 +13,7 @@ export const aiApi = createApi({
         formData.append("file", file);
 
         return {
-          url: "/ImageAnalysis/analyze",
+          url: "/api/ImageAnalysis/analyze",
           method: "POST",
           body: formData,
         };

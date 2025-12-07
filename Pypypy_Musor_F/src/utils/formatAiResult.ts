@@ -1,5 +1,3 @@
-// utils/formatAiResult.ts
-// utils/formatAiResult.ts
 import type { PredictionResponse } from "@/types/ai";
 import { wasteInfoMap } from "./wasteMapping";
 
@@ -17,7 +15,7 @@ export const formatAiResult = (
   if (!prediction || prediction.confidence < 0.5) {
     return {
       title: "Не удалось распознать",
-      container: "Попробуйте сфотографировать ещё раз или выберите категорию вручную",
+      container: "Попробуйте сфотографировать ещё раз",
       advice: "",
       recognized: false
     };

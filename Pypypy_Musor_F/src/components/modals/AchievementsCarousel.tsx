@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Carousel,
@@ -11,48 +10,11 @@ import {
   CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel"
-
-type Achievement = {
-  id: string
-  image: string
-  title: string
-  users: {
-    name: string
-    date: string
-  }[]
-}
-
-const achievements: Achievement[] = [
-  {
-    id: "1",
-    image: "/achievements/eco-hero.png",
-    title: "Эко-герой",
-    users: [
-      { name: "Alex", date: "12.10.2024" },
-      { name: "Maria", date: "18.10.2024" },
-    ],
-  },
-  {
-    id: "2",
-    image: "/achievements/recycle-master.png",
-    title: "Мастер сортировки",
-    users: [
-      { name: "Denis", date: "20.10.2024" },
-      { name: "Anna", date: "21.10.2024" },
-      { name: "Oleg", date: "25.10.2024" },
-    ],
-  },
-  {
-    id: "3",
-    image: "/achievements/first-step.png",
-    title: "Первый шаг",
-    users: [
-      { name: "Kate", date: "01.11.2024" },
-    ],
-  },
-]
+import { useGetAllAchievementsQuery } from "@/features/achievApi"
 
 export function AchievementsCarousel() {
+  const { data: achievements = [], isLoading, isError } = useGetAllAchievementsQuery()
+
   const [api, setApi] = React.useState<CarouselApi>()
   const [current, setCurrent] = React.useState(0)
   const [count, setCount] = React.useState(0)
@@ -68,6 +30,39 @@ export function AchievementsCarousel() {
     })
   }, [api])
 
+  if (isLoading) {
+    return (
+      <div className="mx-auto w-full max-w-xl">
+        <div className="rounded-3xl border p-6 flex flex-col items-center justify-center h-80">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+          <p className="text-lg text-gray-600">Загрузка ачивок...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="mx-auto w-full max-w-xl">
+        <div className="rounded-3xl border p-6 flex flex-col items-center justify-center h-80">
+          <p className="text-lg text-red-500 mb-2">Ошибка загрузки ачивок</p>
+          <p className="text-gray-600">Попробуйте обновить страницу</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (achievements.length === 0) {
+    return (
+      <div className="mx-auto w-full max-w-xl">
+        <div className="rounded-3xl border p-6 flex flex-col items-center justify-center h-80">
+          <p className="text-lg text-gray-600 mb-2">Ачивок пока нет</p>
+          <p className="text-gray-500">Будьте первыми!</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto w-full max-w-xl">
       <Carousel setApi={setApi} className="w-full">
@@ -77,25 +72,51 @@ export function AchievementsCarousel() {
               <Card className="rounded-3xl">
                 <CardContent className="p-6 flex flex-col items-center text-center gap-4">
                   <div className="relative w-32 h-32">
-                    <img
-                    src={ach.image}
-                    alt={ach.title}
-                    className="w-32 h-32 object-contain"
-                    />
+                    {ach.iconPath ? (
+                      <img
+                        src={ach.iconPath}
+                        alt={ach.name}
+                        className="w-32 h-32 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = "/achievements/default.png"
+                          e.currentTarget.className = "w-32 h-32 object-contain opacity-50"
+                        }}
+                      />
+                    ) : (
+                      <div className="w-32 h-32 rounded-full bg-green-100 flex items-center justify-center">
+                        <span className="text-4xl">🏆</span>
+                      </div>
+                    )}
                   </div>
 
-                  <h3 className="text-2xl font-bold">{ach.title}</h3>
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-bold">{ach.name}</h3>
+                    <p className="text-gray-600">{ach.description}</p>
+                    <div className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                      +{ach.pointsReward} баллов
+                    </div>
+                  </div>
 
                   <div className="w-full bg-gray-50 rounded-xl p-4 text-left">
-                    <div className="font-semibold mb-2">Получили:</div>
-                    <div className="space-y-1">
-                      {ach.users.map((user, idx) => (
-                        <div key={idx} className="text-sm flex justify-between">
-                          <span>{user.name}</span>
-                          <span className="text-gray-500">{user.date}</span>
-                        </div>
-                      ))}
+                    <div className="font-semibold mb-2">
+                      Получили: {ach.userIds.length} пользователей
                     </div>
+                    {ach.userIds.length > 0 ? (
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {ach.userIds.map((user, idx) => (
+                          <div key={`${user.userId}-${idx}`} className="text-sm flex justify-between items-center">
+                            <div>
+                              <span className="font-medium">{user.login}</span>
+                              {user.fullName && (
+                                <span className="text-gray-500 text-xs ml-2">({user.fullName})</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">Ещё никто не получил эту ачивку</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -103,13 +124,19 @@ export function AchievementsCarousel() {
           ))}
         </CarouselContent>
 
-        <CarouselPrevious />
-        <CarouselNext />
+        {achievements.length > 1 && (
+          <>
+            <CarouselPrevious />
+            <CarouselNext />
+          </>
+        )}
       </Carousel>
 
-      <div className="text-muted-foreground py-3 text-center text-sm">
-        Слайд {current} из {count}
-      </div>
+      {achievements.length > 1 && (
+        <div className="text-muted-foreground py-3 text-center text-sm">
+          Слайд {current} из {count}
+        </div>
+      )}
     </div>
   )
 }
