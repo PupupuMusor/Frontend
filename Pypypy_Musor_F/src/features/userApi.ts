@@ -2,7 +2,7 @@ import { baseApi } from "./baseApi";
 
 export interface User {
   id: string;
-  nickname: string;
+  login: string;
   points: number;
 }
 

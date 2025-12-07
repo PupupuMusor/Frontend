@@ -21,6 +21,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   const [nickname, setNickname] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [isValidUser, setIsValidUser] = useState(false);
 
   const [resultText, setResultText] = useState<{
     title: string;
@@ -38,10 +39,12 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   const { data: users = [] } = useGetAllUsersQuery();
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const filteredUsers = users.filter((user) =>
-    user.nickname.toLowerCase().includes(nickname.toLowerCase())
+  const filteredUsers = users.filter(
+    (user) =>
+      typeof user.login === "string" &&
+      user.login.toLowerCase().includes(nickname.toLowerCase())
   );
-  
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -108,7 +111,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   };
 
   const sendToAI = async () => {
-    if (!file || !nickname || isLoading) return;
+    if (!file || !isValidUser || isLoading) return;
 
     const result: PredictionResponse = await analyzeImage(file).unwrap();
     onSubmit(nickname, result);
@@ -129,7 +132,6 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     setFile(null);
     setResultText(null);
   };
-  
 
   const fullReset = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -143,32 +145,38 @@ export const CameraModal: React.FC<CameraModalProps> = ({
     setPhoto(null);
     setFile(null);
     setResultText(null);
+    setIsValidUser(false);
   };
 
   if (!isOpen) return null;
 
-  // Маппинг типов мусора на названия файлов изображений
-  const getImageForWasteType = (type: string = 'plastic') => {
+  const getImageForWasteType = (type: string = "plastic") => {
     const imageMap: Record<string, string> = {
-      plastic: '/plastic.jpg',
-      paper: '/paper.jpg',
-      organic: '/organic.jpg',
-      glass: '/glass.jpg',
-      metal: '/glass.jpg',
+      plastic: "/plastic.jpg",
+      paper: "/paper.jpg",
+      organic: "/organic.jpg",
+      glass: "/glass.jpg",
+      metal: "/glass.jpg",
     };
-    return imageMap[type] || '/plastic.jpg';
+    return imageMap[type] || "/plastic.jpg";
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-white rounded-3xl p-6 w-full max-w-2xl relative text-center max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-3xl p-6 w-full relative text-center max-w-[95%] max-h-[90vh] 
+                      sm:max-w-full
+                      md:max-w-[80%] md:max-h-[70%] 
+                      lg:max-w-[70%] lg:max-h-[90%] lg:min-h-[50%]
+                      xl:max-w-[60%] xl:max-h-[80%] xl:min-h-[45%]
+                      2xl:max-w-[45%] 2xl:max-h-[85%] 2xl:min-h-[40%]
+                      overflow-y-auto">
 
         <button
           className="absolute top-6 right-6 text-gray-400 hover:text-black text-3xl z-10"
-            onClick={() => {
-              fullReset();
-              onClose();
-            }}
+          onClick={() => {
+            fullReset();
+            onClose();
+          }}
         >
           ×
         </button>
@@ -195,6 +203,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 />
               )}
             </div>
+
             <div className="relative mb-6">
               <Input
                 type="text"
@@ -203,25 +212,38 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 onChange={(e) => {
                   setNickname(e.target.value);
                   setShowSuggestions(true);
+                  setIsValidUser(false);
                 }}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                 className="text-lg py-3 px-4"
               />
 
               {showSuggestions && filteredUsers.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white border rounded-xl mt-2 max-h-48 overflow-y-auto z-20 shadow-lg">
+                <div className="text-sm absolute top-full left-0 right-0 bg-white border rounded-xl mt-2 max-h-48 overflow-y-auto z-20 shadow-lg">
                   {filteredUsers.map((user) => (
                     <div
                       key={user.id}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-left"
-                      onClick={() => {
-                        setNickname(user.nickname);
+                      onMouseDown={() => {
+                        setNickname(user.login);
+                        setIsValidUser(true);
+                        setShowSuggestions(false);
+                      }}
+                      onTouchStart={() => {
+                        setNickname(user.login);
+                        setIsValidUser(true);
                         setShowSuggestions(false);
                       }}
                     >
-                      {user.nickname}
+                      {user.login}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {showSuggestions && nickname && filteredUsers.length === 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white border rounded-xl mt-2 p-3 text-sm text-red-500 text-left shadow-lg z-20">
+                  Пользователь не найден
                 </div>
               )}
             </div>
@@ -231,7 +253,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 <Button
                   className="w-full py-6 text-lg bg-yellow-400 hover:bg-yellow-500 transition-all"
                   onClick={takePhoto}
-                  disabled={!nickname}
+                  disabled={!isValidUser}
                 >
                   <Camera className="mr-3 h-6 w-6" /> Сделать фото
                 </Button>
@@ -239,7 +261,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
                 <Button
                   className="w-full py-6 text-lg bg-green-500 hover:bg-green-600 transition-all"
                   onClick={sendToAI}
-                  disabled={isLoading}
+                  disabled={!isValidUser || isLoading}
                 >
                   {isLoading ? "Распознаю..." : "Отправить на распознавание"}
                 </Button>
@@ -249,22 +271,21 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         )}
 
         {resultText && (
-          <div className="text-center space-y-6">
-            <h2 className={`text-3xl font-bold ${!resultText.recognized ? 'text-red-500' : ''}`}>
+          <div className="text-center space-y-6 flex flex-col items-center justify-center">
+            <h2 className={`text-3xl font-bold ${!resultText.recognized ? "text-red-500" : ""}`}>
               {resultText.title}
             </h2>
-            
-            {/* Отображение картинки ТОЛЬКО если удалось распознать */}
+
             {resultText.recognized && resultText.wasteType && (
-              <div className="relative w-full h-64 rounded-2xl overflow-hidden mb-4">
+              <div className="relative flex flex-col items-center justify-center w-full h-64 rounded-2xl overflow-hidden mb-4">
                 <img
                   src={getImageForWasteType(resultText.wasteType)}
                   alt={resultText.title}
-                  className="w-full h-full object-cover"
+                  className="max-w-xl h-auto object-cover"
                 />
               </div>
             )}
-            
+
             <div className="bg-gray-50 rounded-xl p-5">
               <p className="text-xl font-semibold text-gray-800 mb-3">
                 {resultText.container}
@@ -296,7 +317,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
             </div>
           </div>
         )}
-        
+
         <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>

@@ -2,7 +2,7 @@ import { cn } from "@/utils/utils";
 import { Container } from "../shared/container";
 import { ChartNoAxesColumnIncreasing } from "lucide-react";
 import { useState } from "react";
-import { RatingModal } from "../modals/RatingMadal";
+import { RatingModal } from "../modals/RatingModal";
 
 interface Props {
   className?: string;
