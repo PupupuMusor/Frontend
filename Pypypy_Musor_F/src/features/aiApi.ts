@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const aiApi = createApi({
   reducerPath: "aiApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:5276",
+    baseUrl: import.meta.env.VITE_AI_API_URL || "http://localhost:8080",
   }),
   endpoints: (builder) => ({
     analyzeImage: builder.mutation<PredictionResponse, File>({
